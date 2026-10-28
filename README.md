@@ -36,7 +36,6 @@ What the installer changes:
 - backs up `~/.claude/settings.json`, then adds:
   - allow rules for the two scripts, so they run without permission prompts
   - a deny rule so Claude can't read the saved Reddit session file
-  - two auto mode rules, so the auto mode classifier doesn't block the scripts
   - the WebSearch hook (unless `--no-hook`)
 
 Start a new Claude Code session afterwards to load the skills.

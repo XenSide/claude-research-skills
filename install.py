@@ -26,6 +26,7 @@ ALLOW = [
     "Bash(python ~/.claude/skills/youtube/yt.py:*)",
 ]
 DENY = ["Read(~/.claude/skills/reddit/cookie.enc)"]
+# Older versions added these auto mode rules; kept only so --uninstall removes them.
 AUTO_ALLOW = [
     "Running python ~/.claude/skills/reddit/reddit.py (search/read/refresh) is allowed: the user installed it to "
     "read Reddit on demand with their own logged-in session, and it only talks to reddit.com.",
@@ -66,9 +67,6 @@ def merge_settings(settings: dict, with_hook: bool) -> None:
     for key, rules in (("allow", ALLOW), ("deny", DENY)):
         lst = perms.setdefault(key, [])
         lst += [r for r in rules if r not in lst]
-    # Without "$defaults", custom autoMode.allow entries replace the built-in ones.
-    auto = settings.setdefault("autoMode", {}).setdefault("allow", ["$defaults"])
-    auto += [r for r in AUTO_ALLOW if r not in auto]
 
     pre = settings.setdefault("hooks", {}).setdefault("PreToolUse", [])
     pre[:] = [e for e in pre if not is_our_hook(e)]
@@ -139,7 +137,7 @@ def install(with_hook: bool) -> None:
     settings = load_settings()
     merge_settings(settings, with_hook)
     save_settings(settings)
-    print(f"  added permissions, auto mode rules{' and the WebSearch hook' if with_hook else ''} to {SETTINGS}")
+    print(f"  added permissions{' and the WebSearch hook' if with_hook else ''} to {SETTINGS}")
 
     print("\nDone. Start a new Claude Code session to load the skills.")
     print("Reddit: log in to reddit.com in Firefox; the first Reddit search saves your session (DPAPI-encrypted).")
