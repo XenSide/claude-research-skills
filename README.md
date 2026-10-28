@@ -49,7 +49,7 @@ Reddit blocks logged-out access to its data, so the skill uses your own session:
 2. It saves them encrypted with Windows DPAPI in `~/.claude/skills/reddit/cookie.enc`. Only your Windows account can decrypt that file.
 3. When the session expires, it refreshes from Firefox on its own. If Firefox isn't logged in, it opens the Reddit login page there and waits up to 75 seconds.
 
-Requests go only to old.reddit.com, through `curl_cffi` with a Chrome TLS fingerprint, because Reddit rejects plain HTTP clients. Everything runs on your account, so the skill tells Claude to keep it to a handful of requests per question. Many sessions searching Reddit at the same time can trip Reddit's bot defence ("You've been blocked by network security"); the script then stops and tells Claude not to retry. Whether this kind of access fits Reddit's terms is your call.
+Requests go only to old.reddit.com, through `curl_cffi` with a Firefox TLS fingerprint, because Reddit rejects plain HTTP clients. Everything runs on your account, so the skill tells Claude to keep it to a handful of requests per question. Many sessions searching Reddit at the same time can trip Reddit's bot defence ("You've been blocked by network security"); the script then stops and tells Claude not to retry. Whether this kind of access fits Reddit's terms is your call.
 
 ## YouTube details
 
