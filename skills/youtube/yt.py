@@ -54,42 +54,54 @@ def info(vid):
     return d, json.loads(f.read_text(encoding="utf-8"))
 
 
+def original_lang(meta):
+    # YouTube marks the original audio track even when the video's declared language is wrong.
+    for f in meta.get("formats") or []:
+        if f.get("language") and "original" in (f.get("format_note") or ""):
+            return f["language"].split("-")[0]
+    return (meta.get("language") or "").split("-")[0]
+
+
 def pick_track(meta):
-    """Manual subs beat auto; original language beats machine translation."""
+    """(track, kind, translated): a track in the original language if there is one, else the best translation."""
     manual = [l for l in meta.get("subtitles") or {} if l != "live_chat"]
     auto = list(meta.get("automatic_captions") or {})
-    lang = (meta.get("language") or "").split("-")[0]
-    # Videos with AI-dubbed audio list an "-orig" auto track per dub language, so match it to the video's language.
+    lang = original_lang(meta)
+    base = lambda l: l.split("-")[0]
+    # Every auto track except "-orig" is a machine translation; AI-dubbed videos also add one "-orig" per dub language.
     for pool, pred, kind in (
-        (manual, lambda l: lang and l.startswith(lang), "manual"),
-        (manual, lambda l: l.startswith("en"), "manual"),
-        (manual, lambda l: True, "manual"),
-        (auto, lambda l: lang and l.endswith("-orig") and l.split("-")[0] == lang, "auto"),
+        (manual, lambda l: base(l) == lang, "manual"),
+        (auto, lambda l: l.endswith("-orig") and base(l) == lang, "auto"),
+        (manual, lambda l: base(l) == "en", "manual"),
         (auto, lambda l: l == lang, "auto"),
         (auto, lambda l: l == "en-orig", "auto"),
         (auto, lambda l: l == "en", "auto"),
         (auto, lambda l: l.endswith("-orig"), "auto"),
+        (manual, lambda l: True, "manual"),
     ):
         for l in pool:
             if pred(l):
-                return l, kind
-    return None, None
+                translated = (kind == "auto" and not l.endswith("-orig")) or bool(lang and base(l) != lang)
+                return l, kind, translated
+    return None, None, False
 
 
 def build_md(vid):
     """Cached header + chapters + description + '[m:ss]' transcript paragraphs."""
     d, meta = info(vid)
     out = d / f"{vid}.md"
-    if not out.exists():
-        lang, kind = pick_track(meta)
-        captions = f"captions: {lang} ({kind})" if lang else "captions: NONE"
+    track, kind, translated = pick_track(meta)
+    note = ", translated from the original language, may be inaccurate" if translated else ""
+    captions = f"captions: {track} ({kind}{note})" if track else "captions: NONE"
+    # Rebuild transcripts cached by a version that picked a different track.
+    if not out.exists() or captions not in out.read_text(encoding="utf-8"):
         transcript = []
-        if lang:
-            sub = d / f"{vid}.{lang}.json3"
+        if track:
+            sub = d / f"{vid}.{track}.json3"
             if not sub.exists():
                 flag = "--write-subs" if kind == "manual" else "--write-auto-subs"
                 ytdlp("--load-info-json", str(d / f"{vid}.info.json"), "--skip-download", flag,
-                      "--sub-langs", lang, "--sub-format", "json3", "-o", str(d / "%(id)s.%(ext)s"))
+                      "--sub-langs", track, "--sub-format", "json3", "-o", str(d / "%(id)s.%(ext)s"))
             transcript = paragraphs(json.loads(sub.read_text(encoding="utf-8")).get("events", []))
             # Music-only videos get auto captions like "[Music] thank you [Music] foreign" that look like a transcript.
             spoken = len(NON_SPEECH.sub(" ", " ".join(p.partition("] ")[2] for p in transcript)).split())
